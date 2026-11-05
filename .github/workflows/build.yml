@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Sync Latest Geode SDK & Generate Icon
+      - name: Sync Geode SDK & Generate Icon Safely
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -22,9 +22,8 @@ jobs:
           pip install pillow requests
           python -c "
           import json, os, re, requests
-          from PIL import Image, ImageDraw, ImageFont
+          from PIL import Image, ImageDraw
 
-          # 1. Đồng bộ phiên bản Geode SDK mới nhất có xác thực GITHUB_TOKEN (chống lỗi Rate Limit & Outdated)
           headers = {'Accept': 'application/vnd.github+json'}
           token = os.environ.get('GH_TOKEN')
           if token:
@@ -39,7 +38,6 @@ jobs:
                           mod_data = json.load(f)
                       mod_data['geode'] = tag
 
-                      # Kiểm tra phiên bản GD tương ứng trong CMakeLists.txt của Geode SDK đó
                       cmake_Req = requests.get(f'https://raw.githubusercontent.com/geode-sdk/geode/v{tag}/CMakeLists.txt', timeout=10)
                       if cmake_Req.status_code == 200:
                           m = re.search(r'2\.20\d+', cmake_Req.text)
@@ -52,19 +50,16 @@ jobs:
           except Exception as e:
               print('Fallback to default mod.json:', e)
 
-          # 2. Vẽ Icon logo.png chuẩn Cyberpunk 120 FPS Lock
+          # Vẽ icon Cyberpunk bằng hình học 100% không phụ thuộc font chữ (tránh lỗi 25s)
           img = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
           draw = ImageDraw.Draw(img)
           draw.rounded_rectangle([10, 10, 246, 246], radius=46, fill=(10, 14, 22, 255), outline=(118, 185, 0, 255), width=8)
           draw.rounded_rectangle([22, 22, 234, 234], radius=36, fill=(16, 22, 34, 255), outline=(0, 245, 255, 220), width=3)
           draw.polygon([(36, 168), (105, 140), (220, 140), (190, 168)], fill=(118, 185, 0, 85))
-          draw.line([(36, 172), (220, 172)], fill=(0, 245, 255, 200), width=3)
-          font_xl = ImageFont.load_default(size=72)
-          font_md = ImageFont.load_default(size=25)
-          font_sm = ImageFont.load_default(size=18)
-          draw.text((128, 78), '120', fill=(0, 255, 210, 255), anchor='mm', font=font_xl)
-          draw.text((128, 134), 'HARD LOCK', fill=(118, 185, 0, 255), anchor='mm', font=font_md)
-          draw.text((128, 198), 'MX350 ULTRA', fill=(235, 245, 255, 255), anchor='mm', font=font_sm)
+          draw.line([(36, 172), (220, 172)], fill=(0, 245, 255, 200), width=4)
+          draw.rectangle([50, 70, 206, 110], outline=(0, 255, 210, 255), width=3)
+          for i in range(5):
+              draw.rectangle([65 + i*28, 80, 85 + i*28, 100], fill=(118, 185, 0, 255))
           img.save('logo.png')
           "
 
@@ -77,5 +72,5 @@ jobs:
       - name: Upload Artifact (.geode)
         uses: actions/upload-artifact@v4
         with:
-          name: MX350-120FPS-Lock-v3.0.0
+          name: MX350-120FPS-Lock-v3.1.0
           path: ${{ steps.build.outputs.build-output }}

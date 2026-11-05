@@ -1,0 +1,67 @@
+name: Build Geode Mod (GD 2.2081 Latest)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Auto-Sync Latest Geode Version in mod.json
+        shell: pwsh
+        run: |
+          try {
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/geode-sdk/geode/releases/latest"
+            $latestVer = $release.tag_name -replace '^v', ''
+            Write-Host "Detected latest Geode version: $latestVer"
+            $modJson = Get-Content "mod.json" -Raw | ConvertFrom-Json
+            $modJson.geode = $latestVer
+            $modJson.gd.win = "2.2081"
+            $modJson | ConvertTo-Json -Depth 10 | Set-Content "mod.json" -Encoding UTF8
+          } catch {
+            Write-Warning "Using fallback Geode version in mod.json"
+          }
+          Get-Content "mod.json"
+
+      - name: Generate Custom Mod Icon (logo.png)
+        shell: pwsh
+        run: |
+          pip install pillow
+          python -c "
+          from PIL import Image, ImageDraw, ImageFont
+          img = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+          draw = ImageDraw.Draw(img)
+          # Khung viền kép phong cách Nvidia GeForce & Solo System
+          draw.rounded_rectangle([10, 10, 246, 246], radius=46, fill=(10, 14, 22, 255), outline=(118, 185, 0, 255), width=8)
+          draw.rounded_rectangle([22, 22, 234, 234], radius=36, fill=(16, 22, 34, 255), outline=(0, 245, 255, 220), width=3)
+          # Hoạ tiết tia năng lượng
+          draw.polygon([(36, 168), (105, 140), (220, 140), (190, 168)], fill=(118, 185, 0, 85))
+          draw.line([(36, 172), (220, 172)], fill=(0, 245, 255, 200), width=3)
+          # Chữ hiển thị sắc nét
+          font_xl = ImageFont.load_default(size=72)
+          font_md = ImageFont.load_default(size=26)
+          font_sm = ImageFont.load_default(size=19)
+          draw.text((128, 78), '120', fill=(0, 255, 210, 255), anchor='mm', font=font_xl)
+          draw.text((128, 134), 'TRUE FPS', fill=(118, 185, 0, 255), anchor='mm', font=font_md)
+          draw.text((128, 198), 'MX350 ULTRA', fill=(235, 245, 255, 255), anchor='mm', font=font_sm)
+          img.save('logo.png')
+          "
+
+      - name: Build Geode Mod
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true
+
+      - name: Upload Artifact (.geode)
+        uses: actions/upload-artifact@v4
+        with:
+          name: MX350-120FPS-Lock-v2.0.0
+          path: ${{ steps.build.outputs.build-output }}

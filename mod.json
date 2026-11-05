@@ -1,0 +1,11 @@
+{
+	"geode": "4.3.1",
+	"gd": {
+		"win": "2.2081"
+	},
+	"id": "custom.mx350_120fps_lock",
+	"name": "MX350 True 120FPS Lock",
+	"version": "v2.0.0",
+	"developer": "SystemOptimizer",
+	"description": "Unlock & khóa cứng 120.0 FPS thật cho màn 60Hz trên GD 2.2081. Tối ưu sâu Kernel Windows 11, RAM 8GB và Driver Nvidia MX350."
+}

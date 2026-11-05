@@ -14,42 +14,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Auto-Sync Latest Geode Version in mod.json
+      - name: Sync Latest Geode SDK & Generate Icon
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          try {
-            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/geode-sdk/geode/releases/latest"
-            $latestVer = $release.tag_name -replace '^v', ''
-            Write-Host "Detected latest Geode version: $latestVer"
-            $modJson = Get-Content "mod.json" -Raw | ConvertFrom-Json
-            $modJson.geode = $latestVer
-            $modJson.gd.win = "2.2081"
-            $modJson | ConvertTo-Json -Depth 10 | Set-Content "mod.json" -Encoding UTF8
-          } catch {
-            Write-Warning "Using fallback Geode version in mod.json"
-          }
-          Get-Content "mod.json"
-
-      - name: Generate Custom Mod Icon (logo.png)
-        shell: pwsh
-        run: |
-          pip install pillow
+          pip install pillow requests
           python -c "
+          import json, os, re, requests
           from PIL import Image, ImageDraw, ImageFont
+
+          # 1. Đồng bộ phiên bản Geode SDK mới nhất có xác thực GITHUB_TOKEN (chống lỗi Rate Limit & Outdated)
+          headers = {'Accept': 'application/vnd.github+json'}
+          token = os.environ.get('GH_TOKEN')
+          if token:
+              headers['Authorization'] = f'Bearer {token}'
+
+          try:
+              r = requests.get('https://api.github.com/repos/geode-sdk/geode/releases/latest', headers=headers, timeout=10)
+              if r.status_code == 200:
+                  tag = r.json().get('tag_name', '').lstrip('v')
+                  if tag:
+                      with open('mod.json', 'r', encoding='utf-8-sig') as f:
+                          mod_data = json.load(f)
+                      mod_data['geode'] = tag
+
+                      # Kiểm tra phiên bản GD tương ứng trong CMakeLists.txt của Geode SDK đó
+                      cmake_Req = requests.get(f'https://raw.githubusercontent.com/geode-sdk/geode/v{tag}/CMakeLists.txt', timeout=10)
+                      if cmake_Req.status_code == 200:
+                          m = re.search(r'2\.20\d+', cmake_Req.text)
+                          if m:
+                              mod_data['gd']['win'] = m.group(0)
+
+                      with open('mod.json', 'w', encoding='utf-8') as f:
+                          json.dump(mod_data, f, indent=4, ensure_ascii=False)
+                      print(f'Synced mod.json -> Geode: {mod_data[\"geode\"]}, GD: {mod_data[\"gd\"][\"win\"]}')
+          except Exception as e:
+              print('Fallback to default mod.json:', e)
+
+          # 2. Vẽ Icon logo.png chuẩn Cyberpunk 120 FPS Lock
           img = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
           draw = ImageDraw.Draw(img)
-          # Khung viền kép phong cách Nvidia GeForce & Solo System
           draw.rounded_rectangle([10, 10, 246, 246], radius=46, fill=(10, 14, 22, 255), outline=(118, 185, 0, 255), width=8)
           draw.rounded_rectangle([22, 22, 234, 234], radius=36, fill=(16, 22, 34, 255), outline=(0, 245, 255, 220), width=3)
-          # Hoạ tiết tia năng lượng
           draw.polygon([(36, 168), (105, 140), (220, 140), (190, 168)], fill=(118, 185, 0, 85))
           draw.line([(36, 172), (220, 172)], fill=(0, 245, 255, 200), width=3)
-          # Chữ hiển thị sắc nét
           font_xl = ImageFont.load_default(size=72)
-          font_md = ImageFont.load_default(size=26)
-          font_sm = ImageFont.load_default(size=19)
+          font_md = ImageFont.load_default(size=25)
+          font_sm = ImageFont.load_default(size=18)
           draw.text((128, 78), '120', fill=(0, 255, 210, 255), anchor='mm', font=font_xl)
-          draw.text((128, 134), 'TRUE FPS', fill=(118, 185, 0, 255), anchor='mm', font=font_md)
+          draw.text((128, 134), 'HARD LOCK', fill=(118, 185, 0, 255), anchor='mm', font=font_md)
           draw.text((128, 198), 'MX350 ULTRA', fill=(235, 245, 255, 255), anchor='mm', font=font_sm)
           img.save('logo.png')
           "
@@ -63,5 +77,5 @@ jobs:
       - name: Upload Artifact (.geode)
         uses: actions/upload-artifact@v4
         with:
-          name: MX350-120FPS-Lock-v2.0.0
+          name: MX350-120FPS-Lock-v3.0.0
           path: ${{ steps.build.outputs.build-output }}

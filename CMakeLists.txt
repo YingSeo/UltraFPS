@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-project(MX350_120FPS_Lock VERSION 2.0.0)
+project(MX350_120FPS_Lock VERSION 3.0.0)
 
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
@@ -21,13 +21,9 @@ if (WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE
         opengl32
         winmm
-        psapi
         advapi32
         kernel32
     )
-    # Tối ưu hóa trình biên dịch MSVC ở mức cao nhất cho CPU x64
-    target_compile_options(${PROJECT_NAME} PRIVATE /O2 /Oi /Ot /GL /fp:fast)
-    target_link_options(${PROJECT_NAME} PRIVATE /LTCG)
 endif()
 
 setup_geode_mod(${PROJECT_NAME})
